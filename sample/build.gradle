@@ -14,7 +14,7 @@ android {
 
     defaultConfig {
         applicationId "com.robotemi.sdk.sample"
-        minSdkVersion 23
+        minSdkVersion 26
         //noinspection ExpiredTargetSdkVersion,ExpiringTargetSdkVersion
         targetSdkVersion 30
         versionCode 1
@@ -39,17 +39,56 @@ android {
     lintOptions {
         abortOnError false
     }
+    viewBinding {
+        enabled = true
+    }
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
 
+    // 实现 androidx appcompat 库，用于提供与 Android 新版本兼容的 UI 组件
     implementation 'androidx.appcompat:appcompat:1.1.0'
+
+    // 实现 androidx constraintlayout 库，提供灵活的布局方式以适应不同屏幕尺寸
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    // 实现 Google Android Material 库，用于实现 Material Design 组件
+    implementation 'com.google.android.material:material:1.5.0'
+
+    // 测试中实现 JUnit 库，用于进行单元测试
     testImplementation 'junit:junit:4.13.2'
+
+    // Android 测试中实现 androidx test runner 库，用于运行 Android 仪器化测试
     androidTestImplementation 'androidx.test:runner:1.4.0'
+
+    // Android 测试中实现 Espresso core 库，用于进行功能测试
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+
+    // 实现 androidx lifecycle runtime-ktx 库，用于简化生命周期管理和响应式编程
     implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.4.0'
+
+    // 实现 androidx recyclerview 库，提供可滚动的视图列表
+    implementation 'androidx.recyclerview:recyclerview:1.3.0'
+
+    // 实现 androidx documentfile 库，用于访问文档提供程序中的文档
+    implementation 'androidx.documentfile:documentfile:1.0.0'
+
+    // 实现 okhttp3 okhttp 库，用于创建 HTTP 请求和处理响应
+    implementation 'com.squareup.okhttp3:okhttp:5.0.0-alpha.2'
+
+    // 实现 retrofit2 retrofit 库，用于构建类型安全的 HTTP API 客户端
+    implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+
+    // 实现 Apache POI 库，用于读写 Microsoft Office 格式文件
+    implementation 'org.apache.poi:poi:5.2.2'
+
+    // 实现 Apache POI OOXML 库，用于处理 OOXML 格式文件，如 Excel 文件
+    implementation 'org.apache.poi:poi-ooxml:5.2.2'
+
+    //android text to speach api
+    implementation 'com.android.support:support-v4:30.0.0'
+
 
     // temi SDK
     implementation project(':sdk')
