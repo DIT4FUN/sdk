@@ -79,6 +79,8 @@ dependencies {
 
     // 实现 retrofit2 retrofit 库，用于构建类型安全的 HTTP API 客户端
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'
+    implementation 'com.squareup.retrofit2:converter-gson:2.9.0'
+    implementation 'com.squareup.okhttp3:logging-interceptor:5.0.0-alpha.2'
 
     // 实现 Apache POI 库，用于读写 Microsoft Office 格式文件
     implementation 'org.apache.poi:poi:5.2.2'
@@ -87,7 +89,7 @@ dependencies {
     implementation 'org.apache.poi:poi-ooxml:5.2.2'
 
     //android text to speach api
-    implementation 'com.android.support:support-v4:30.0.0'
+    implementation 'com.android.support:support-v4:33.0.0'
 
 
     // temi SDK
