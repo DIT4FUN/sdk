@@ -81,7 +81,7 @@ class OllamaActivity : AppCompatActivity() {
             .addInterceptor(retryInterceptor)
             .build()
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://172.16.24.134:11434")
+            .baseUrl("http://172.16.24.107:11434")
             .addConverterFactory(GsonConverterFactory.create(customGson))
             .client(okHttpClient)
             .build()
@@ -90,6 +90,9 @@ class OllamaActivity : AppCompatActivity() {
         binding.ollamaSendButton.setOnClickListener {
             val message = binding.ollamaInput.text.toString()
             if (message.isNotEmpty()) {
+                // 添加用户消息到消息列表
+                val userMessage = Message(role = "user", content = message)
+                messageAdapter.updateMessages(userMessage)
                 sendMessageToOllama(message)
             }
         }
@@ -133,7 +136,7 @@ class OllamaActivity : AppCompatActivity() {
                             lines.add(nonNullLine)
                         }
                     }
-
+                    var HoleResponse = "assistant:"
 
                     runOnUiThread {
                         try {
@@ -144,13 +147,21 @@ class OllamaActivity : AppCompatActivity() {
                                             role = "assistant",
                                             content = it.content
                                         )
+                                    Log.d("OllamaActivity", "sendMessageToOllama responseMessage: ${responseMessage.message}")
 
-                                    messageAdapter.updateMessages(assistantMessage) // 通知适配器数据已更改
+                                    HoleResponse += it.content
+                                    messageAdapter.updateMessages(HoleResponse) // 通知适配器数据已更改
+
+                                }
+                                if ( line.contains("\"done\":true")){
+                                    //处理对话结束
+                                    reader.close() // 确保在所有数据读取完毕后关闭 reader
+                                    binding.ollamaInput.text.clear()
                                     binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
+                                    break
                                 }
                             }
-                            reader.close() // 确保在所有数据读取完毕后关闭 reader
-                            binding.ollamaInput.text.clear()
+
                         } catch (e: Exception) {
                             Log.e("OllamaActivity", "Error parsing JSON: ${e.message}")
                         }

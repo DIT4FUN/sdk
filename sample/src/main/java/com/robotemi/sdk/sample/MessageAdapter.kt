@@ -48,7 +48,10 @@ class MessageAdapter(private val messageList: MutableList<Message>) : RecyclerVi
         messageList.add(newMessage)
         notifyItemInserted(messageList.size - 1)
     }
-
+    fun updateMessages(newMessage: String){
+        val newMessageObject = Message("assistant", newMessage)
+        updateMessages(newMessageObject)
+    }
     /**
      * 获取消息列表大小，用于确定RecyclerView中消息项的数量
      * @return 消息列表的大小
