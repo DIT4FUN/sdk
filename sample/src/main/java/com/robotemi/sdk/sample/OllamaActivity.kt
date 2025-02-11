@@ -49,7 +49,7 @@ class OllamaActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         messageList = mutableListOf()
-        messageAdapter = MessageAdapter(messageList.map { it.content }) // 初始化适配器
+        messageAdapter = MessageAdapter(messageList) // 初始化适配器
         binding.messageRecyclerView.adapter = messageAdapter
         binding.messageRecyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
 
@@ -101,65 +101,62 @@ class OllamaActivity : AppCompatActivity() {
      * @param message 用户输入的消息文本
      */
     private fun sendMessageToOllama(message: String) {
-        Log.d("OllamaActivity", "sendMessageToOllama called with message: $message")
-        val request = ChatRequest(
-            model = "deepseek-r1:70b",
-            messages = listOf(Message(role = "user", content = message))
-        )
-        ollamaApi.sendMessage(request).enqueue(object : Callback<ResponseBody> {
-            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
-                Log.d("OllamaActivity", "sendMessageToOllama response: ${response.body()}")
-                Log.d("OllamaActivity", "sendMessageToOllama response.isSuccessful: ${response.isSuccessful}")
-                if (response.isSuccessful) {
-                    response.body()?.let { responseBody ->
-                        val reader = BufferedReader(InputStreamReader(responseBody.byteStream()))
-                        var line: String?
-                        while (reader.readLine().also { line = it } != null) {
-<<<<<<< HEAD
-                                runOnUiThread {
-                                    try {
-                                        val responseMessage = Gson().fromJson(line, ChatResponse::class.java)
-                                        responseMessage.message?.let {
-                                            messageList.add(
-                                                Message(
-                                                    role = "assistant",
-                                                    content = it.content
-                                                )
-                                            )
-                                            messageAdapter.notifyItemInserted(messageList.size - 1) // 通知适配器数据已更改
-                                            binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
-                                        }
-                                    } catch (e: Exception) {
-                                        Log.e("OllamaActivity", "Error parsing JSON: ${e.message}")
-=======
-                            runOnUiThread {
-                                try {
-                                    val responseMessage = Gson().fromJson(line, ChatResponse::class.java)
-                                    responseMessage.message?.let {
-                                        messageList.add(Message(role = "user", content = message))
-                                        messageList.add(Message(role = "assistant", content = it.content))
-                                        messageAdapter.notifyItemInserted(messageList.size - 1) // 通知适配器数据已更改
-                                        binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
->>>>>>> parent of 30b3edb (buf fix)
-                                    }
+    Log.d("OllamaActivity", "sendMessageToOllama called with message: $message")
+    val request = ChatRequest(
+        model = "deepseek-r1:70b",
+        messages = listOf(Message(role = "user", content = message))
+    )
+    ollamaApi.sendMessage(request).enqueue(object : Callback<ResponseBody> {
+        override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+            Log.d("OllamaActivity", "sendMessageToOllama response: ${response.body()}")
+            Log.d("OllamaActivity", "sendMessageToOllama response.isSuccessful: ${response.isSuccessful}")
+            if (response.isSuccessful) {
+                response.body()?.let { responseBody ->
+                    val reader = BufferedReader(InputStreamReader(responseBody.byteStream()))
+                    val lines = mutableListOf<String>()
+                    var line: String?
+                    while (reader.readLine().also { line = it } != null) {
+                        line?.let { nonNullLine ->
+                            lines.add(nonNullLine)
+                        }
+                    }
+
+
+                    runOnUiThread {
+                        try {
+                            for (line in lines) {
+                                val responseMessage = Gson().fromJson(line, ChatResponse::class.java)
+                                responseMessage.message?.let {
+                                    val assistantMessage= Message(
+                                            role = "assistant",
+                                            content = it.content
+                                        )
+
+                                    messageAdapter.updateMessages(assistantMessage) // 通知适配器数据已更改
+                                    binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
                                 }
                             }
-                        reader.close()
-                        binding.ollamaInput.text.clear()
+                            reader.close() // 确保在所有数据读取完毕后关闭 reader
+                            binding.ollamaInput.text.clear()
+                        } catch (e: Exception) {
+                            Log.e("OllamaActivity", "Error parsing JSON: ${e.message}")
+                        }
                     }
-                } else {
-                    Log.d("OllamaActivity", "Failed to send message,response code: ${response.code()}")
-                    Toast.makeText(this@OllamaActivity, "Failed to send message", Toast.LENGTH_SHORT).show()
                 }
-            }
 
-
-            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
-                Log.d("OllamaActivity", "Failed to send message,error: ${t.message}")
+            } else {
+                Log.d("OllamaActivity", "Failed to send message,response code: ${response.code()}")
                 Toast.makeText(this@OllamaActivity, "Failed to send message", Toast.LENGTH_SHORT).show()
             }
-        })
-    }
+        }
+
+        override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+            Log.d("OllamaActivity", "Failed to send message,error: ${t.message}")
+            Toast.makeText(this@OllamaActivity, "Failed to send message", Toast.LENGTH_SHORT).show()
+        }
+    })
+}
+
 
 
 

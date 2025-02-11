@@ -11,7 +11,7 @@ import androidx.recyclerview.widget.RecyclerView
  * 消息适配器，用于在RecyclerView中展示消息列表
  * @param messages 消息列表，包含要展示的消息文本
  */
-class MessageAdapter(private val messages: List<String>) : RecyclerView.Adapter<MessageAdapter.MessageViewHolder>() {
+class MessageAdapter(private val messageList: MutableList<Message>) : RecyclerView.Adapter<MessageAdapter.MessageViewHolder>() {
 
     /**
      * 消息视图持有者，用于在RecyclerView中展示单个消息项
@@ -40,9 +40,13 @@ class MessageAdapter(private val messages: List<String>) : RecyclerView.Adapter<
      */
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
         // 获取当前位置的消息内容
-        val message = messages[position]
+        val message = messageList[position]
         // 将消息内容转换为 HTML 格式并设置到视图上
-        holder.messageText.text = Html.fromHtml(message, Html.FROM_HTML_MODE_LEGACY)
+        holder.messageText.text = Html.fromHtml(message.content, Html.FROM_HTML_MODE_LEGACY)
+    }
+    fun updateMessages(newMessage: Message) {
+        messageList.add(newMessage)
+        notifyItemInserted(messageList.size - 1)
     }
 
     /**
@@ -50,7 +54,7 @@ class MessageAdapter(private val messages: List<String>) : RecyclerView.Adapter<
      * @return 消息列表的大小
      */
     override fun getItemCount(): Int {
-        return messages.size
+        return messageList.size
     }
 
     /**
