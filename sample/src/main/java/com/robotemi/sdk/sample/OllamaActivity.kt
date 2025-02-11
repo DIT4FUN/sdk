@@ -2,16 +2,19 @@ package com.robotemi.sdk.sample
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import com.robotemi.sdk.sample.databinding.ActivityOllamaBinding
+import okhttp3.internal.notify
 import android.text.Html
 import android.text.Spanned
+import android.text.SpannableStringBuilder
 import android.text.TextWatcher
 import android.text.Editable
+import android.text.Html.fromHtml
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import okhttp3.Interceptor
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -21,7 +24,6 @@ import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import java.io.BufferedReader
-import java.io.IOException
 import java.io.InputStreamReader
 
 /**
@@ -47,7 +49,7 @@ class OllamaActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         messageList = mutableListOf()
-        messageAdapter = MessageAdapter(messageList) // 初始化适配器
+        messageAdapter = MessageAdapter(messageList.map { it.content }) // 初始化适配器
         binding.messageRecyclerView.adapter = messageAdapter
         binding.messageRecyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
 
@@ -55,30 +57,7 @@ class OllamaActivity : AppCompatActivity() {
         val customGson: Gson = GsonBuilder()
             .setLenient()
             .create()
-        //创建重试拦截器
-        val retryInterceptor = object:Interceptor{
-            private val MAX_RETRIES = 10
-            private var retryCount = 0
-            override fun intercept(chain: Interceptor.Chain): okhttp3.Response {
-                val request = chain.request()
-                var response: okhttp3.Response? = null
 
-                while (retryCount < MAX_RETRIES) {
-                    try {
-                        response = chain.proceed(request)
-                        if (response.isSuccessful) {
-                            return response
-                        }
-                    } catch (e: Exception) {
-                        retryCount++
-                        Log.d("ollamaActivity","Exception Request failed ,retrying....$retryCount")
-                    }
-                }
-
-                //如果所有重试都失败了,则抛出最后一个异常
-                throw IOException("Request failed after $MAX_RETRIES retries")
-            }
-        }
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
@@ -87,7 +66,6 @@ class OllamaActivity : AppCompatActivity() {
             .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .addInterceptor(loggingInterceptor)
-            .addInterceptor(retryInterceptor)
             .build()
         val retrofit = Retrofit.Builder()
             .baseUrl("http://172.16.24.134:11434")
@@ -124,12 +102,6 @@ class OllamaActivity : AppCompatActivity() {
      */
     private fun sendMessageToOllama(message: String) {
         Log.d("OllamaActivity", "sendMessageToOllama called with message: $message")
-
-        // 添加用户消息到 messageList
-        messageList.add(Message(role = "user", content = message))
-        messageAdapter.notifyItemInserted(messageList.size - 1) // 通知适配器数据已更改
-        binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
-
         val request = ChatRequest(
             model = "deepseek-r1:70b",
             messages = listOf(Message(role = "user", content = message))
@@ -143,19 +115,35 @@ class OllamaActivity : AppCompatActivity() {
                         val reader = BufferedReader(InputStreamReader(responseBody.byteStream()))
                         var line: String?
                         while (reader.readLine().also { line = it } != null) {
+<<<<<<< HEAD
+                                runOnUiThread {
+                                    try {
+                                        val responseMessage = Gson().fromJson(line, ChatResponse::class.java)
+                                        responseMessage.message?.let {
+                                            messageList.add(
+                                                Message(
+                                                    role = "assistant",
+                                                    content = it.content
+                                                )
+                                            )
+                                            messageAdapter.notifyItemInserted(messageList.size - 1) // 通知适配器数据已更改
+                                            binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
+                                        }
+                                    } catch (e: Exception) {
+                                        Log.e("OllamaActivity", "Error parsing JSON: ${e.message}")
+=======
                             runOnUiThread {
                                 try {
                                     val responseMessage = Gson().fromJson(line, ChatResponse::class.java)
                                     responseMessage.message?.let {
+                                        messageList.add(Message(role = "user", content = message))
                                         messageList.add(Message(role = "assistant", content = it.content))
                                         messageAdapter.notifyItemInserted(messageList.size - 1) // 通知适配器数据已更改
                                         binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
+>>>>>>> parent of 30b3edb (buf fix)
                                     }
-                                } catch (e: Exception) {
-                                    Log.e("OllamaActivity", "Error parsing JSON: ${e.message}")
                                 }
                             }
-                        }
                         reader.close()
                         binding.ollamaInput.text.clear()
                     }
