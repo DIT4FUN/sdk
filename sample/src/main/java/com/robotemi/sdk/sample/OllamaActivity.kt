@@ -15,6 +15,8 @@ import android.text.Html.fromHtml
 import android.util.Log
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import okhttp3.Interceptor
+import okhttp3.OkHttp
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -22,8 +24,10 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
+import okhttp3.Request
 import okhttp3.logging.HttpLoggingInterceptor
 import java.io.BufferedReader
+import java.io.IOException
 import java.io.InputStreamReader
 
 /**
@@ -39,6 +43,10 @@ class OllamaActivity : AppCompatActivity() {
     // Ollama API 接口的实现，用于与服务器交互
     private lateinit var ollamaApi: OllamaApi
 
+
+
+
+
     /**
      * Activity 创建时调用的方法
      * 初始化 UI、设置适配器、配置网络请求，并设置点击和文本变化监听器
@@ -53,6 +61,7 @@ class OllamaActivity : AppCompatActivity() {
         binding.messageRecyclerView.adapter = messageAdapter
         binding.messageRecyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
 
+
         // 创建自定义的 Gson 实例，并设置为宽容模式
         val customGson: Gson = GsonBuilder()
             .setLenient()
@@ -61,11 +70,15 @@ class OllamaActivity : AppCompatActivity() {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
+
+        val retryInterceptor = RetryInterceptor(maxRetries = 3)
+
         val okHttpClient = OkHttpClient.Builder()
             .connectTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .writeTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
             .addInterceptor(loggingInterceptor)
+            .addInterceptor(retryInterceptor)
             .build()
         val retrofit = Retrofit.Builder()
             .baseUrl("http://172.16.24.134:11434")
