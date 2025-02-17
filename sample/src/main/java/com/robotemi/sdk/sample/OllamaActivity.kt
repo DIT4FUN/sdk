@@ -13,8 +13,10 @@ import android.text.TextWatcher
 import android.text.Editable
 import android.text.Html.fromHtml
 import android.util.Log
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
+import kotlinx.android.synthetic.main.message_item.message_text
 import okhttp3.Interceptor
 import okhttp3.OkHttp
 import retrofit2.Call
@@ -45,7 +47,33 @@ class OllamaActivity : AppCompatActivity() {
 
 
 
+    private fun scrollToBottom() {
+        binding.messageRecyclerView.post {
+            val lastPosition = messageList.size - 1
+            if (lastPosition >= 0) {
+                binding.messageRecyclerView.smoothScrollToPosition(lastPosition)
 
+                // 添加布局完成监听确保滚动生效
+                binding.messageRecyclerView.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+                    override fun onLayoutChange(
+                        v: View?,
+                        left: Int,
+                        top: Int,
+                        right: Int,
+                        bottom: Int,
+                        oldLeft: Int,
+                        oldTop: Int,
+                        oldRight: Int,
+                        oldBottom: Int
+                    ) {
+                        binding.messageRecyclerView.removeOnLayoutChangeListener(this)
+                        (binding.messageRecyclerView.layoutManager as LinearLayoutManager)
+                            .scrollToPositionWithOffset(lastPosition, 0)
+                    }
+                })
+            }
+        }
+    }
 
     /**
      * Activity 创建时调用的方法
@@ -81,7 +109,7 @@ class OllamaActivity : AppCompatActivity() {
             .addInterceptor(retryInterceptor)
             .build()
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://172.16.24.107:11434")
+            .baseUrl("http://172.16.24.187:11434")
             .addConverterFactory(GsonConverterFactory.create(customGson))
             .client(okHttpClient)
             .build()
@@ -90,10 +118,13 @@ class OllamaActivity : AppCompatActivity() {
         binding.ollamaSendButton.setOnClickListener {
             val message = binding.ollamaInput.text.toString()
             if (message.isNotEmpty()) {
+                var userStringHead = "user: $message"
                 // 添加用户消息到消息列表
-                val userMessage = Message(role = "user", content = message)
+                val userMessage = Message(role = "user", content = userStringHead)
                 messageAdapter.updateMessages(userMessage)
+                scrollToBottom()
                 sendMessageToOllama(message)
+
             }
         }
 
@@ -136,6 +167,7 @@ class OllamaActivity : AppCompatActivity() {
                             lines.add(nonNullLine)
                         }
                     }
+                    //创建拼接数据
                     var HoleResponse = "assistant:"
 
                     runOnUiThread {
@@ -150,14 +182,15 @@ class OllamaActivity : AppCompatActivity() {
                                     Log.d("OllamaActivity", "sendMessageToOllama responseMessage: ${responseMessage.message}")
 
                                     HoleResponse += it.content
-                                    messageAdapter.updateMessages(HoleResponse) // 通知适配器数据已更改
 
                                 }
                                 if ( line.contains("\"done\":true")){
+                                    messageAdapter.updateMessages(HoleResponse) // 通知适配器数据已更改
                                     //处理对话结束
-                                    reader.close() // 确保在所有数据读取完毕后关闭 reader
+                                    //reader.close() // 确保在所有数据读取完毕后关闭 reader
                                     binding.ollamaInput.text.clear()
-                                    binding.messageRecyclerView.scrollToPosition(messageList.size - 1)
+                                    //binding.messageRecyclerView.smoothScrollToPosition(messageList.lastIndex)
+                                    scrollToBottom()
                                     break
                                 }
                             }

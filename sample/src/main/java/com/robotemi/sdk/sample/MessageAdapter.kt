@@ -45,8 +45,16 @@ class MessageAdapter(private val messageList: MutableList<Message>) : RecyclerVi
         holder.messageText.text = Html.fromHtml(message.content, Html.FROM_HTML_MODE_LEGACY)
     }
     fun updateMessages(newMessage: Message) {
-        messageList.add(newMessage)
-        notifyItemInserted(messageList.size - 1)
+        when (newMessage.role) {
+            "user" -> {
+                messageList.add(newMessage)
+                notifyItemInserted(messageList.lastIndex)
+            }
+            "assistant" -> {
+                messageList.add(newMessage)
+                notifyItemInserted(messageList.lastIndex)
+            }
+        }
     }
     fun updateMessages(newMessage: String){
         val newMessageObject = Message("assistant", newMessage)
