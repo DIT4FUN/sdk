@@ -1,10 +1,12 @@
 package com.robotemi.sdk.sample
 import android.text.Html
 import android.text.Spanned
+import android.text.method.LinkMovementMethod
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 
 /**
@@ -12,7 +14,12 @@ import androidx.recyclerview.widget.RecyclerView
  * @param messages 消息列表，包含要展示的消息文本
  */
 class MessageAdapter(private val messageList: MutableList<Message>) : RecyclerView.Adapter<MessageAdapter.MessageViewHolder>() {
-
+    fun updateList(newList: List<Message>) {
+        val diffResult = DiffUtil.calculateDiff(MessageDiffUtil(messageList, newList))
+        messageList.clear()
+        messageList.addAll(newList)
+        diffResult.dispatchUpdatesTo(this)
+    }
     /**
      * 消息视图持有者，用于在RecyclerView中展示单个消息项
      */
@@ -39,10 +46,10 @@ class MessageAdapter(private val messageList: MutableList<Message>) : RecyclerVi
      * @param position 消息在列表中的位置
      */
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
-        // 获取当前位置的消息内容
-        val message = messageList[position]
-        // 将消息内容转换为 HTML 格式并设置到视图上
-        holder.messageText.text = Html.fromHtml(message.content, Html.FROM_HTML_MODE_LEGACY)
+        // 修改Adapter的onBindViewHolder
+
+            holder.messageText.movementMethod = LinkMovementMethod.getInstance() // 支持链接点击
+            holder.messageText.text = messageList[position].content
     }
     fun updateMessages(newMessage: Message) {
         when (newMessage.role) {
@@ -84,3 +91,4 @@ class MessageAdapter(private val messageList: MutableList<Message>) : RecyclerVi
     }
 
 }
+

@@ -13,6 +13,7 @@ import android.text.TextWatcher
 import android.text.Editable
 import android.text.Html.fromHtml
 import android.util.Log
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
@@ -31,6 +32,7 @@ import okhttp3.logging.HttpLoggingInterceptor
 import java.io.BufferedReader
 import java.io.IOException
 import java.io.InputStreamReader
+import java.util.regex.Pattern
 
 /**
  * OllamaActivity 类继承自 AppCompatActivity，主要用于展示和处理与 Ollama 相关的消息交互
@@ -48,12 +50,15 @@ class OllamaActivity : AppCompatActivity() {
 
 
     private fun scrollToBottom() {
-        binding.messageRecyclerView.post {
-            val lastPosition = messageAdapter.itemCount - 1
-            if (lastPosition >= 0) {
-                    (binding.messageRecyclerView.layoutManager as LinearLayoutManager)
-                        .scrollToPositionWithOffset(lastPosition, 0)
-                }
+        val layoutManager = binding.messageRecyclerView.layoutManager as LinearLayoutManager
+        val totalItemCount = messageAdapter.itemCount
+        val lastVisiblePosition = layoutManager.findLastVisibleItemPosition()
+
+        // 智能滚动策略
+        if (totalItemCount - lastVisiblePosition <= 3) {
+            binding.messageRecyclerView.postDelayed({
+                layoutManager.scrollToPositionWithOffset(totalItemCount - 1, 0)
+            }, 100) // 添加微小延迟确保布局完成
         }
     }
 
@@ -65,6 +70,9 @@ class OllamaActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityOllamaBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        // 在RecyclerView初始化时添加
+        binding.messageRecyclerView.setItemViewCacheSize(20) // 增大缓存
+        binding.messageRecyclerView.setHasFixedSize(false)   // 允许动态高度
         binding.messageRecyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
             override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
                 super.onScrolled(recyclerView, dx, dy)
@@ -143,6 +151,7 @@ class OllamaActivity : AppCompatActivity() {
         model = "deepseek-r1:70b",
         messages = listOf(Message(role = "user", content = message))
     )
+        var holeResponse = StringBuilder() // 改用StringBuilder提升性能
     ollamaApi.sendMessage(request).enqueue(object : Callback<ResponseBody> {
         override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
             Log.d("OllamaActivity", "sendMessageToOllama response: ${response.body()}")
@@ -154,39 +163,26 @@ class OllamaActivity : AppCompatActivity() {
                     var line: String?
                     while (reader.readLine().also { line = it } != null) {
                         line?.let { nonNullLine ->
-                            lines.add(nonNullLine)
-                        }
-                    }
-                    //创建拼接数据
-                    var HoleResponse = "assistant:"
+                            if (nonNullLine.contains("\"content\":\"")) {
+                                // 实时提取内容片段
+                                val content = extractContent(nonNullLine)
+                                holeResponse.append(content)
 
-                    runOnUiThread {
-                        try {
-                            for (line in lines) {
-                                val responseMessage = Gson().fromJson(line, ChatResponse::class.java)
-                                responseMessage.message?.let {
-                                    val assistantMessage= Message(
-                                            role = "assistant",
-                                            content = it.content
-                                        )
-                                    Log.d("OllamaActivity", "sendMessageToOllama responseMessage: ${responseMessage.message}")
-
-                                    HoleResponse += it.content
-
-                                }
-                                if ( line.contains("\"done\":true")){
-                                    messageAdapter.updateMessages(HoleResponse) // 通知适配器数据已更改
-                                    //处理对话结束
-                                    //reader.close() // 确保在所有数据读取完毕后关闭 reader
-                                    binding.ollamaInput.text.clear()
-                                    //binding.messageRecyclerView.smoothScrollToPosition(messageList.lastIndex)
+                                // 实时分段更新
+                                runOnUiThread {
+                                    if (messageList.last().role == "assistant") {
+                                        // 更新最后一条消息
+                                        messageList.last().content = "assistant: $holeResponse"
+                                        messageAdapter.notifyItemChanged(messageList.lastIndex)
+                                    } else {
+                                        // 新建助理消息
+                                        val newMessage = Message("assistant", "assistant: $holeResponse")
+                                        messageList.add(newMessage)
+                                        messageAdapter.notifyItemInserted(messageList.lastIndex)
+                                    }
                                     scrollToBottom()
-                                    break
                                 }
                             }
-
-                        } catch (e: Exception) {
-                            Log.e("OllamaActivity", "Error parsing JSON: ${e.message}")
                         }
                     }
                 }
@@ -204,7 +200,11 @@ class OllamaActivity : AppCompatActivity() {
     })
 }
 
-
+    private fun extractContent(line: String): String {
+        val pattern = Pattern.compile("\"content\":\"(.*?)(?=\")")
+        val matcher = pattern.matcher(line)
+        return if (matcher.find()) matcher.group(1) else ""
+    }
 
 
     /**
@@ -220,4 +220,19 @@ class OllamaActivity : AppCompatActivity() {
         }
     }
 }
+
+// 添加DiffUtil处理增量更新
+class MessageDiffUtil(
+    private val oldList: List<Message>,
+    private val newList: List<Message>
+) : DiffUtil.Callback() {
+    override fun getOldListSize() = oldList.size
+    override fun getNewListSize() = newList.size
+    override fun areItemsTheSame(oldPos: Int, newPos: Int) =
+        oldList[oldPos].content.hashCode() == newList[newPos].content.hashCode()
+    override fun areContentsTheSame(oldPos: Int, newPos: Int) =
+        oldList[oldPos] == newList[newPos]
+}
+
+
 

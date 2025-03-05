@@ -34,6 +34,6 @@ data class ChatResponse(
 
 data class Message(
     val role: String,
-    val content: String,
+    var content: String,
     val images: List<String>? = null
 )
