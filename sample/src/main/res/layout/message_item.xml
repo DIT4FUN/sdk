@@ -7,14 +7,16 @@
 
     <TextView
         android:id="@+id/message_text"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="24sp"
         android:padding="16dp"
         android:textStyle="bold"
         android:textColor="@color/colorBlack"
         android:inputType="textMultiLine"
-        android:maxLines="10"
-        android:ellipsize="end"/>
+        android:ellipsize="none"
+        android:scrollbars = "vertical"
+        android:scrollbarStyle="outsideOverlay"
+        android:textIsSelectable="true"/>
 
 </LinearLayout>

@@ -49,29 +49,11 @@ class OllamaActivity : AppCompatActivity() {
 
     private fun scrollToBottom() {
         binding.messageRecyclerView.post {
-            val lastPosition = messageList.size - 1
+            val lastPosition = messageAdapter.itemCount - 1
             if (lastPosition >= 0) {
-                binding.messageRecyclerView.smoothScrollToPosition(lastPosition)
-
-                // 添加布局完成监听确保滚动生效
-                binding.messageRecyclerView.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
-                    override fun onLayoutChange(
-                        v: View?,
-                        left: Int,
-                        top: Int,
-                        right: Int,
-                        bottom: Int,
-                        oldLeft: Int,
-                        oldTop: Int,
-                        oldRight: Int,
-                        oldBottom: Int
-                    ) {
-                        binding.messageRecyclerView.removeOnLayoutChangeListener(this)
-                        (binding.messageRecyclerView.layoutManager as LinearLayoutManager)
-                            .scrollToPositionWithOffset(lastPosition, 0)
-                    }
-                })
-            }
+                    (binding.messageRecyclerView.layoutManager as LinearLayoutManager)
+                        .scrollToPositionWithOffset(lastPosition, 0)
+                }
         }
     }
 
@@ -83,6 +65,14 @@ class OllamaActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityOllamaBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        binding.messageRecyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
+                super.onScrolled(recyclerView, dx, dy)
+                val lastVisibleItemPosition = (recyclerView.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).findLastVisibleItemPosition()
+                val itemCount = recyclerView.adapter?.itemCount ?: 0
+                if (lastVisibleItemPosition == itemCount -1) {}
+            }
+        })
 
         messageList = mutableListOf()
         messageAdapter = MessageAdapter(messageList) // 初始化适配器
@@ -109,7 +99,7 @@ class OllamaActivity : AppCompatActivity() {
             .addInterceptor(retryInterceptor)
             .build()
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://172.16.24.187:11434")
+            .baseUrl("http://172.16.25.33:11434")
             .addConverterFactory(GsonConverterFactory.create(customGson))
             .client(okHttpClient)
             .build()
@@ -230,5 +220,4 @@ class OllamaActivity : AppCompatActivity() {
         }
     }
 }
-
 
