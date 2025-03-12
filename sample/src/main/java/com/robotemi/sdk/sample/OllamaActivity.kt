@@ -17,7 +17,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import kotlinx.android.synthetic.main.message_item.message_text
+import kotlinx.android.synthetic.main.message_item.message_webview
 import okhttp3.Interceptor
 import okhttp3.OkHttp
 import retrofit2.Call
@@ -151,11 +151,11 @@ class OllamaActivity : AppCompatActivity() {
         model = "deepseek-r1:70b",
         messages = listOf(Message(role = "user", content = message))
     )
-        var holeResponse = StringBuilder() // 改用StringBuilder提升性能
     ollamaApi.sendMessage(request).enqueue(object : Callback<ResponseBody> {
         override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
             Log.d("OllamaActivity", "sendMessageToOllama response: ${response.body()}")
             Log.d("OllamaActivity", "sendMessageToOllama response.isSuccessful: ${response.isSuccessful}")
+
             if (response.isSuccessful) {
                 response.body()?.let { responseBody ->
                     val reader = BufferedReader(InputStreamReader(responseBody.byteStream()))
@@ -166,22 +166,7 @@ class OllamaActivity : AppCompatActivity() {
                             if (nonNullLine.contains("\"content\":\"")) {
                                 // 实时提取内容片段
                                 val content = extractContent(nonNullLine)
-                                holeResponse.append(content)
-
-                                // 实时分段更新
-                                runOnUiThread {
-                                    if (messageList.last().role == "assistant") {
-                                        // 更新最后一条消息
-                                        messageList.last().content = "assistant: $holeResponse"
-                                        messageAdapter.notifyItemChanged(messageList.lastIndex)
-                                    } else {
-                                        // 新建助理消息
-                                        val newMessage = Message("assistant", "assistant: $holeResponse")
-                                        messageList.add(newMessage)
-                                        messageAdapter.notifyItemInserted(messageList.lastIndex)
-                                    }
-                                    scrollToBottom()
-                                }
+                                updateMessageContent(content)
                             }
                         }
                     }
@@ -205,34 +190,24 @@ class OllamaActivity : AppCompatActivity() {
         val matcher = pattern.matcher(line)
         return if (matcher.find()) matcher.group(1) else ""
     }
-
-
-    /**
-     * 将 HTML 字符串转换为 Spanned 对象
-     * @param html HTML 字符串
-     * @return 转换后的 Spanned 对象
-     */
-    private fun fromHtml(html: String): Spanned {
-        return if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
-            Html.fromHtml(html, Html.FROM_HTML_MODE_LEGACY)
-        } else {
-            Html.fromHtml(html)
+    private fun updateMessageContent(content: String) {
+        runOnUiThread {
+            if (messageList.isNotEmpty() && messageList.last().role == "assistant") {
+                // 更新最后一条消息
+                messageList.last().content += content
+                messageAdapter.notifyItemChanged(messageList.lastIndex)
+            } else {
+                // 新建助理消息
+                val newMessage = Message(role = "assistant", content = content)
+                messageList.add(newMessage)
+                messageAdapter.notifyItemInserted(messageList.lastIndex)
+            }
+            scrollToBottom()
         }
     }
+
 }
 
-// 添加DiffUtil处理增量更新
-class MessageDiffUtil(
-    private val oldList: List<Message>,
-    private val newList: List<Message>
-) : DiffUtil.Callback() {
-    override fun getOldListSize() = oldList.size
-    override fun getNewListSize() = newList.size
-    override fun areItemsTheSame(oldPos: Int, newPos: Int) =
-        oldList[oldPos].content.hashCode() == newList[newPos].content.hashCode()
-    override fun areContentsTheSame(oldPos: Int, newPos: Int) =
-        oldList[oldPos] == newList[newPos]
-}
 
 
 

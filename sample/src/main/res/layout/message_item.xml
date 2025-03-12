@@ -2,21 +2,16 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:padding="8dp">
 
-    <TextView
-        android:id="@+id/message_text"
+    <WebView
+        android:id="@+id/message_webview"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textSize="24sp"
         android:padding="16dp"
-        android:textStyle="bold"
-        android:textColor="@color/colorBlack"
-        android:inputType="textMultiLine"
-        android:ellipsize="none"
         android:scrollbars = "vertical"
         android:scrollbarStyle="outsideOverlay"
-        android:textIsSelectable="true"/>
+        android:background="@android:color/transparent" />
 
 </LinearLayout>

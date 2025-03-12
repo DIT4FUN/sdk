@@ -96,4 +96,21 @@ dependencies {
     implementation project(':sdk')
 //    implementation 'com.robotemi:sdk:1.134.1'
     implementation 'com.google.code.gson:gson:2.9.0'
+    // CommonMark 解析库
+    implementation 'org.commonmark:commonmark:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-gfm-tables:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-autolink:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-task-list-items:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-heading-anchor:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-yaml-front-matter:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-ins:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-footnotes:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-gfm-strikethrough:0.24.0'
+    implementation 'org.commonmark:commonmark-ext-image-attributes:0.24.0'
+
+
+    // HTML 渲染库
+    implementation 'com.github.bumptech.glide:glide:4.15.1'
+    annotationProcessor 'com.github.bumptech.glide:compiler:4.15.1'
+
 }
