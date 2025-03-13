@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -39,110 +40,61 @@ class MessageAdapter(private val messageList: MutableList<Message>) : RecyclerVi
         val view = LayoutInflater.from(parent.context).inflate(R.layout.message_item, parent, false)
         return MessageViewHolder(view)
     }
-
     /**
      * 绑定消息项视图，将消息内容设置到视图上
      * @param holder 消息视图持有者
      * @param position 消息在列表中的位置
      */
     override fun onBindViewHolder(holder: MessageViewHolder, position: Int) {
-        // 修改Adapter的onBindViewHolder
-        val processedContent = processMarkdown(messageList[position].content)
-        Log.d("MessageAdapter", "Processed Content: $processedContent")
-        setHtmlContent(holder.messageWebView, processedContent)
+        val message = messageList[position]
+        val processedContent = when (message.role) {
+            "user" -> "<b>You:</b> ${message.content}"
+            "assistant" -> "<b>Assistant:</b> ${message.content}"
+            else -> message.content
+        }
+        
+        // 添加样式以减少消息间距
+        val htmlContent = """
+            <div style="margin: 4px 0; padding: 4px; border-radius: 8px;">
+                ${MarkdownUtils.convertMarkdownToHtml(processedContent)}
+            </div>
+        """.trimIndent()
+        
+        setHtmlContent(holder.messageWebView, htmlContent)
 
-    }
-
-    private fun processMarkdown(content: String): String {
-        return content
-            .replace("\\u003c","<")
-            .replace("\\u003e", ">")
-            .replace("<think>.*?</think>".toRegex(), "") // 过滤思考内容
-            .replace("\\n{2,}".toRegex(), "<br><br>") // 多个换行优先替换
-            .replace("\\n", "<br>")                   // 单个换行
-            // 其他Markdown元素处理
-            .replace("\\*\\*(.*?)\\*\\*".toRegex(), "<strong>$1</strong>")  // 加粗
-            .replace("\\*(.*?)\\*".toRegex(), "<em>$1</em>")                // 斜体
-            .replace("\\[(.*?)\\]\\((.*?)\\)".toRegex(), "<a href=\"$2\">$1</a>") // 链接
-            .replace("`([^`]+)`".toRegex(), "<code>$1</code>")               // 行内代码
-            // 标题处理
-            .replace("^#{1,6}\\s+(.*?)(\\s+#+)?$".toRegex(RegexOption.MULTILINE)) { match ->
-                val level = match.value.takeWhile { it == '#' }.length.coerceIn(1..6)
-                val text = match.groupValues[1].trim()
-                "<h$level>$text</h$level>"
+        // 确保WebView内容加载完成后再计算高度
+        holder.messageWebView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                view?.post {
+                    view.evaluateJavascript("""
+                        Math.max(document.body.scrollHeight, document.body.offsetHeight, 
+                                 document.documentElement.clientHeight, document.documentElement.scrollHeight, 
+                                 document.documentElement.offsetHeight);
+                    """.trimIndent()) { height ->
+                        if (height != null && height != "null") {
+                            val params = view.layoutParams
+                            params.height = height.toInt()
+                            view.layoutParams = params
+                            (holder.itemView.context as? OllamaActivity)?.scrollToBottom()
+                        }
+                    }
+                }
             }
-            // 列表处理
-            .replace("^\\*\\s+(.*)$".toRegex(RegexOption.MULTILINE), "<ul><li>$1</li></ul>")
-            .replace("^\\d+\\.\\s+(.*)$".toRegex(RegexOption.MULTILINE), "<ol><li>$1</li></ol>")
+        }
     }
-
 
     private fun setHtmlContent(webView: WebView, markdownContent: String) {
         val settings: WebSettings = webView.settings
-        settings.javaScriptEnabled = true // 根据需要启用或禁用JavaScript
+        settings.javaScriptEnabled = false // 根据需要启用或禁用JavaScript
         settings.loadWithOverviewMode = true
         settings.useWideViewPort = true
 
         val htmlContent = MarkdownUtils.convertMarkdownToHtml(markdownContent)
 
-        val html = """
-            <html>
-            <head>
-                <style>
-                    body {
-                        font-size: 24px;
-                        padding: 16px;
-                        color: #000000;
-                        font-family: sans-serif-condensed;
-                        line-height: 1.2;
-                        line-spacing: 4px;
-                    }
-                    a {
-                        color: #80CBC4;
-                    }
-                    h1, h2, h3, h4, h5, h6 {
-                        color: #000000;
-                        font-weight: bold;
-                        }
-                    pre {
-                        background: #f4f4f4;
-                        padding: 15px;
-                        border-radius: 5px;
-                        overflow-x: auto;
-                        margin: 10px 0;
-                    }
-                    code {
-                        font-family: 'Courier New', monospace;
-                        font-size: 0.9em;
-                    }
-                    ul, ol {
-                        padding-left: 30px;
-                        margin: 10px 0;
-                    }
-                    li {
-                        margin: 5px 0;
-                    }
-                </style>
-            </head>
-            <body>
-                $htmlContent            </body>
-            </html>
-        """.trimIndent()
+        webView.loadDataWithBaseURL(null, htmlContent, "text/html", "UTF-8", null)
+    }
 
-        webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null)
-    }
-    fun updateMessages(newMessage: Message) {
-        when (newMessage.role) {
-            "user" -> {
-                messageList.add(newMessage)
-                notifyItemInserted(messageList.lastIndex)
-            }
-            "assistant" -> {
-                messageList.add(newMessage)
-                notifyItemInserted(messageList.lastIndex)
-            }
-        }
-    }
 
     /**
      * 获取消息列表大小，用于确定RecyclerView中消息项的数量
@@ -150,6 +102,16 @@ class MessageAdapter(private val messageList: MutableList<Message>) : RecyclerVi
      */
     override fun getItemCount(): Int {
         return messageList.size
+    }
+
+    /**
+     * 更新消息列表并通知适配器
+     * @param newList 新的消息列表
+     */
+    fun updateList(newList: List<Message>) {
+        messageList.clear()
+        messageList.addAll(newList)
+        notifyDataSetChanged()
     }
 }
 

@@ -9,9 +9,10 @@
         android:id="@+id/message_webview"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp"
+        android:padding="8dp"
         android:scrollbars = "vertical"
-        android:scrollbarStyle="outsideOverlay"
-        android:background="@android:color/transparent" />
+        android:scrollbarStyle="insideOverlay"
+        android:background="@android:color/transparent"
+        android:overScrollMode="always"/>
 
 </LinearLayout>

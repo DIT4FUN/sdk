@@ -10,8 +10,7 @@ import retrofit2.http.Streaming
 interface OllamaApi {
     @POST("/api/chat")
     @Streaming
-    fun sendMessage(@Body request:ChatRequest): Call<ResponseBody>
-
+    fun sendMessage(@Body request: ChatRequest): Call<ResponseBody>
 }
 
 data class ChatRequest(

@@ -1945,7 +1945,7 @@ class MainActivity : AppCompatActivity(), NlpListener, OnRobotReadyListener,
         if (!imageKey.isNullOrBlank()) {
             showFaceRecognitionImage(imageKey)
         } else {
-            imageViewFace.setImageResource(R.drawable.app_icon)
+            imageViewFace.setImageResource(R.mipmap.app_icon)
             imageViewFace.visibility = View.VISIBLE
         }
 
@@ -1988,7 +1988,7 @@ class MainActivity : AppCompatActivity(), NlpListener, OnRobotReadyListener,
         if (!imageKey.isNullOrBlank()) {
             showFaceRecognitionImage(imageKey)
         } else {
-            imageViewFace.setImageResource(R.drawable.app_icon)
+            imageViewFace.setImageResource(R.mipmap.app_icon)
             imageViewFace.visibility = View.VISIBLE
         }
 
@@ -2025,7 +2025,7 @@ class MainActivity : AppCompatActivity(), NlpListener, OnRobotReadyListener,
 
     private fun showFaceRecognitionImage(mediaKey: String) {
         if (mediaKey.isEmpty()) {
-            imageViewFace.setImageResource(R.drawable.app_icon)
+            imageViewFace.setImageResource(R.mipmap.app_icon)
             imageViewFace.visibility = View.INVISIBLE
             return
         }

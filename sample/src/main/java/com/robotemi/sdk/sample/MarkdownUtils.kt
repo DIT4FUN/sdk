@@ -9,6 +9,7 @@ import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.task.list.items.TaskListItemsExtension
 import org.commonmark.node.*
 import org.commonmark.parser.Parser
+import org.commonmark.renderer.html.AttributeProvider
 import org.commonmark.renderer.html.HtmlRenderer
 import org.commonmark.renderer.text.TextContentRenderer
 object MarkdownUtils {
@@ -17,7 +18,8 @@ object MarkdownUtils {
             TablesExtension.create(),
             AutolinkExtension.create(),
             StrikethroughExtension.create(),
-            TaskListItemsExtension.create()
+            TaskListItemsExtension.create(),
+            // 添加更多扩展
         ))
         .build()
 
@@ -26,9 +28,28 @@ object MarkdownUtils {
             TablesExtension.create(),
             AutolinkExtension.create(),
             StrikethroughExtension.create(),
-            TaskListItemsExtension.create()
+            TaskListItemsExtension.create(),
+            // 添加更多扩展
         ))
+        .attributeProviderFactory { context ->
+            HtmlAttributeProvider()
+        }
         .build()
+
+    // 添加自定义 HTML 属性提供器
+    private class HtmlAttributeProvider : AttributeProvider {
+        override fun setAttributes(node: Node, tagName: String, attributes: MutableMap<String, String>) {
+            when (node) {
+                is Link -> {
+                    attributes["target"] = "_blank"
+                    attributes["rel"] = "noopener noreferrer"
+                }
+                is Image -> {
+                    attributes["style"] = "max-width: 100%; height: auto;"
+                }
+            }
+        }
+    }
 
     fun parseMarkdown(markdown: String): Spanned {
         val document: Node = parser.parse(markdown)
