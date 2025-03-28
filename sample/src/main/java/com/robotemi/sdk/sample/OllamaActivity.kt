@@ -150,9 +150,12 @@ class OllamaActivity : AppCompatActivity() {
         }.trim() // 新增整体trim去除多余换行
 
         Log.d("OllamaActivity", "updateChatWebView called with htmlContent: $htmlContent")
-        // 使用双引号包裹并转义双引号，修复单引号转义问题
+        // 修改：添加滚动到底部的JavaScript
         binding.chatWebView.evaluateJavascript(
-            "javascript:document.getElementById('chatContainer').innerHTML = \"${htmlContent.replace("\"", "&quot;").replace("\n", " ")}\";",
+            "javascript:{" +
+            "document.getElementById('chatContainer').innerHTML = \"${htmlContent.replace("\"", "&quot;").replace("\n", " ")}\";" +
+            "window.scrollTo(0, document.body.scrollHeight);" +
+            "}",
             null
         )
     }
