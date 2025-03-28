@@ -35,4 +35,6 @@ data class Message(
     val role: String,
     var content: String,
     val images: List<String>? = null
-)
+) {
+    fun isAssistantMessage(): Boolean = role == "assistant"
+}

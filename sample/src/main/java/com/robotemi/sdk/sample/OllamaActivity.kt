@@ -2,12 +2,9 @@ package com.robotemi.sdk.sample
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Parcel
-import android.os.Parcelable
 import android.view.View
 import android.widget.Toast
 import com.robotemi.sdk.sample.databinding.ActivityOllamaBinding
-import okhttp3.internal.notify
 import android.text.Html
 import android.text.Spanned
 import android.text.SpannableStringBuilder
@@ -15,12 +12,13 @@ import android.text.TextWatcher
 import android.text.Editable
 import android.text.Html.fromHtml
 import android.util.Log
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.chuckerteam.chucker.api.ChuckerInterceptor
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
-import kotlinx.android.synthetic.main.message_item.message_webview
 import okhttp3.ConnectionPool
 import okhttp3.Interceptor
 import okhttp3.OkHttp
@@ -40,81 +38,61 @@ import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import java.io.InputStream
 
-/**
- * OllamaActivity 类继承自 AppCompatActivity，主要用于展示和处理与 Ollama 相关的消息交互
- */
-class OllamaActivity() : AppCompatActivity(), Parcelable {
-    // 延迟初始化的 Activity 绑定对象
+// 需要导入Markdown解析器
+import com.robotemi.sdk.sample.MarkdownUtils.parseMarkdown
+
+class OllamaActivity : AppCompatActivity() {
     private lateinit var binding: ActivityOllamaBinding
-    // 消息适配器，用于 RecyclerView 显示消息列表
-    private lateinit var messageAdapter: MessageAdapter
-    // 消息列表，存储消息数据
-    private lateinit var messageList: MutableList<Message>
-    // Ollama API 接口的实现，用于与服务器交互
     private lateinit var ollamaApi: OllamaApi
+    private val messageList = mutableListOf<Message>()
 
-    constructor(parcel: Parcel) : this() {
-
-    }
-
-
-    fun scrollToBottom() {
-        binding.messageRecyclerView.post {
-            (binding.messageRecyclerView.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(
-                messageList.size - 1,
-                0
-            )
-        }
-    }
-
-    /**
-     * Activity 创建时调用的方法
-     * 初始化 UI、设置适配器、配置网络请求，并设置点击和文本变化监听器
-     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityOllamaBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        // 在RecyclerView初始化时添加
-        binding.messageRecyclerView.setItemViewCacheSize(200) // 增大缓存
-        binding.messageRecyclerView.setHasFixedSize(false)   // 允许动态高度
-        binding.messageRecyclerView.addOnScrollListener(object : androidx.recyclerview.widget.RecyclerView.OnScrollListener() {
-            override fun onScrolled(recyclerView: androidx.recyclerview.widget.RecyclerView, dx: Int, dy: Int) {
-                super.onScrolled(recyclerView, dx, dy)
-                val lastVisibleItemPosition = (recyclerView.layoutManager as androidx.recyclerview.widget.LinearLayoutManager).findLastVisibleItemPosition()
-                val itemCount = recyclerView.adapter?.itemCount ?: 0
-                if (lastVisibleItemPosition == itemCount -1) {}
-            }
-        })
 
-        messageList = mutableListOf()
-        messageAdapter = MessageAdapter(messageList) // 初始化适配器
-        binding.messageRecyclerView.adapter = messageAdapter
-        binding.messageRecyclerView.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(this)
+        // 启用硬件加速
+        window.setFlags(
+            android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+            android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED
+        )
+        binding.chatWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
 
-
-        // 创建自定义的 Gson 实例，并设置为宽容模式
-        val customGson: Gson = GsonBuilder()
-            .setLenient()
-            .create()
-
-        val loggingInterceptor = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+        // Initialize WebView settings
+        binding.chatWebView.settings.apply {
+            javaScriptEnabled = true
+            loadWithOverviewMode = true
+            useWideViewPort = true
+            setSupportZoom(true)
+            builtInZoomControls = true
+            displayZoomControls = false
+            // 禁用不必要的功能以优化渲染性能
+            mediaPlaybackRequiresUserGesture = false
+            cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
+            // 优化渲染模式
+            domStorageEnabled = true
+            databaseEnabled = true
+            allowFileAccess = true
         }
 
+        // Ensure WebView is ready to execute JavaScript
+        binding.chatWebView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                // WebView is ready to execute JavaScript
+                updateChatWebView()
+            }
+        }
+
+        // Initialize Retrofit and OllamaApi
+        val customGson: Gson = GsonBuilder().setLenient().create()
+        val loggingInterceptor = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
         val retryInterceptor = RetryInterceptor(maxRetries = 3)
 
         val okHttpClient = OkHttpClient.Builder()
-            .connectTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-            .readTimeout(0, java.util.concurrent.TimeUnit.SECONDS) //禁用全局ReadTimeout
-            .writeTimeout(120, java.util.concurrent.TimeUnit.SECONDS)
-            .addInterceptor { chain ->
-                val request = chain.request()
-                val response = chain.proceed(request)
-                response.newBuilder()
-                    .body(response.body?.let { it } ?: ResponseBody.create(null, ""))
-                    .build()
-            }
+            .connectTimeout(120, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS) // Increase read timeout
+            .writeTimeout(120, TimeUnit.SECONDS)
             .addInterceptor(loggingInterceptor)
             .addInterceptor(retryInterceptor)
             .retryOnConnectionFailure(true)
@@ -122,50 +100,78 @@ class OllamaActivity() : AppCompatActivity(), Parcelable {
             .build()
 
         val retrofit = Retrofit.Builder()
-            .baseUrl("http://172.16.25.33:11434")
+            .baseUrl("http://169.254.1.2:11434")
             .addConverterFactory(GsonConverterFactory.create(customGson))
             .client(okHttpClient)
             .build()
         ollamaApi = retrofit.create(OllamaApi::class.java)
 
+        binding.chatWebView.loadDataWithBaseURL(null, "<div id='chatContainer'></div>", "text/html", "UTF-8", null)  // 初始化基础HTML结构
+
         binding.ollamaSendButton.setOnClickListener {
             val message = binding.ollamaInput.text.toString()
             if (message.isNotEmpty()) {
-                // 修改消息格式，去掉多余的 user: 前缀
-                val userMessage = Message(role = "user", content = message)
-                updateMessages(userMessage)
-                scrollToBottom()
+                messageList.add(Message(role = "user", content = message))
+                updateChatWebView()
                 sendMessageToOllama(message)
                 binding.ollamaInput.text.clear()
             }
         }
+    }
 
-        binding.ollamaInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) {
-                var text = s.toString()
-                if (text.endsWith("**")) {
-                    val formattedText = text.replace("**", "<b>")
-                    binding.ollamaInput.setText(fromHtml(formattedText))
-                    binding.ollamaInput.setSelection(formattedText.length)
-                }
+    // 修改updateChatWebView方法的JavaScript执行逻辑，替换innerHTML而非追加
+    private fun updateChatWebView(messages: List<Message> = messageList) {
+        val htmlContent = messages.joinToString("") { message ->
+            val processedContent = when (message.role) {
+                "user" -> "<b>user:</b> ${convertMarkdownToHtml(message.content)}"
+                "assistant" -> "<b>Assistant:</b> ${convertMarkdownToHtml(message.content)}"
+                else -> convertMarkdownToHtml(message.content)
             }
-        })
+            """
+                <div style='margin: 4px 0; padding: 4px; border-radius: 8px;'>$processedContent</div>
+            """.trimIndent()
+        }
+        Log.d("OllamaActivity", "updateChatWebView called with htmlContent: $htmlContent")
+        binding.chatWebView.evaluateJavascript("javascript:document.getElementById('chatContainer').innerHTML = '${htmlContent.replace("'","\\'")}';", null)
 
     }
 
-    /**
-     * 发送消息到 Ollama
-     * @param message 用户输入的消息文本
-     */
+    // 修改Markdown转换函数实现，增强渲染能力
+    private fun convertMarkdownToHtml(content: String): String {
+        // 使用更可靠的Markdown解析方案（此处假设已添加Markwon库）
+        // 1. 替换为Markwon解析（需先添加依赖）
+        // 2. 若无法添加依赖，手动增强基础转换
+        var html = content
+            .replace(Regex("""\*\*(.*?)\*\*"""), "<strong>$1</strong>") // 加粗
+            .replace(Regex("""`(.*?)`"""), "<code>$1</code>") // 代码片段
+            .replace(Regex("""# (.+)"""), "<h1>$1</h1>") // 标题
+            .replace(Regex("""## (.+)"""), "<h2>$1</h2>")
+            .replace(Regex("""\n"""), "<br>") // 换行
+        // 添加基础样式
+        html = "<div style='font-family: Arial; white-space: pre-line;'>$html</div>"
+        return html
+    }
+
+    // 新增请求与消息位置的映射表
+    private val pendingRequests = mutableMapOf<Call<ResponseBody>, Int>()
+
     private fun sendMessageToOllama(message: String) {
         Log.d("OllamaActivity", "sendMessageToOllama called with message: $message")
+        val userMessage = messageList.last { it.role == "user" && it.content == message }
+        val assistantIndex = messageList.size
+        messageList.add(Message(role = "assistant", content = ""))
+        updateChatWebView()
+        
+        // 新增：构造API请求参数
         val request = ChatRequest(
-            model = "deepseek-r1:70b",
-            messages = messageList + Message(role = "user", content = message)
+            model = "qwq:latest", // 根据实际模型名称修改
+            messages = listOf(userMessage)
         )
-        ollamaApi.sendMessage(request).enqueue(object : Callback<ResponseBody> {
+        
+        val call = ollamaApi.sendMessage(request)
+        pendingRequests[call] = assistantIndex
+
+        call.enqueue(object : Callback<ResponseBody> {
             override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
                 if (response.isSuccessful) {
                     response.body()?.let { responseBody ->
@@ -175,11 +181,17 @@ class OllamaActivity() : AppCompatActivity(), Parcelable {
                                 val line = source.readUtf8Line() ?: break
                                 val chatResponse = Gson().fromJson(line, ChatResponse::class.java)
                                 runOnUiThread {
-                                    // 确保消息内容不为空
-                                    if (chatResponse.message.content.isNotEmpty()) {
-                                        updateMessages(chatResponse.message)
+                                    val position = pendingRequests[call]
+                                    if (position != null) {
+                                        val assistantMessage = messageList[position]
+                                        assistantMessage.content += chatResponse.message.content
+                                        if (chatResponse.done) {
+                                            pendingRequests.remove(call)
+                                            updateChatWebView()
+                                        }
                                     }
                                 }
+                                // Increase read timeout time
                                 source.timeout().deadlineNanoTime(System.nanoTime() + TimeUnit.SECONDS.toNanos(30))
                             }
                         } catch (e: Exception) {
@@ -204,57 +216,8 @@ class OllamaActivity() : AppCompatActivity(), Parcelable {
                 runOnUiThread {
                     Toast.makeText(this@OllamaActivity, "Failed to send message", Toast.LENGTH_SHORT).show()
                 }
-                if (call.isCanceled.not()) {
-                    call.clone().enqueue(this)
-                }
+                pendingRequests.remove(call)
             }
         })
-    }
-
-    private fun extractContent(line: String): String {
-        val chatResponse = Gson().fromJson(line, ChatResponse::class.java)
-        return chatResponse.message.content
-    }
-
-    override fun writeToParcel(parcel: Parcel, flags: Int) {
-
-    }
-
-    override fun describeContents(): Int {
-        return 0
-    }
-
-    companion object CREATOR : Parcelable.Creator<OllamaActivity> {
-        override fun createFromParcel(parcel: Parcel): OllamaActivity {
-            return OllamaActivity(parcel)
-        }
-
-        override fun newArray(size: Int): Array<OllamaActivity?> {
-            return arrayOfNulls(size)
-        }
-    }
-
-    private fun updateMessages(newMessage: Message) {
-        runOnUiThread {
-            if (newMessage.role == "user") {
-                // 用户消息直接添加到列表中
-                messageList.add(newMessage)
-                messageAdapter.notifyItemInserted(messageList.size - 1)
-                scrollToBottom()
-            } else {
-                // 机器人消息流式拼接显示
-                if (messageList.isNotEmpty() && messageList.last().role == "assistant") {
-                    // 如果最后一条消息是机器人的，则拼接内容
-                    val lastMessage = messageList.last()
-                    lastMessage.content += newMessage.content
-                    messageAdapter.notifyItemChanged(messageList.size - 1)
-                } else {
-                    // 如果最后一条消息不是机器人的，则添加新消息
-                    messageList.add(newMessage)
-                    messageAdapter.notifyItemInserted(messageList.size - 1)
-                }
-                scrollToBottom()
-            }
-        }
     }
 }

@@ -1,0 +1,13 @@
+// 在 plugins 块中移除废弃插件：
+
+// 添加 kotlin-parcelize 插件：
+plugins {
+    id 'kotlin-parcelize'
+}
+
+// 在 android 块中启用 ViewBinding：
+android {
+    viewBinding {
+        enabled = true
+    }
+}

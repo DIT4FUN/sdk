@@ -1,12 +1,12 @@
 package com.robotemi.sdk.sample
 
-// RetryInterceptor.kt
 import android.os.SystemClock
 import android.util.Log
 import okhttp3.Interceptor
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
+import java.net.SocketException
 import java.net.SocketTimeoutException
 
 //网络拦截器,网络重试机制
@@ -24,6 +24,10 @@ class RetryInterceptor(private val maxRetries: Int = 3) : Interceptor {
             } catch (e: IOException) {
                 if (e is SocketTimeoutException) {
                     Log.w("Retry", "Timeout retry $retryCount")
+                } else if (e is SocketException && e.message == "Connection reset") {
+                    Log.e("Retry", "Connection reset detected, retrying...")
+                } else {
+                    Log.e("Retry", "Request failed: ${e.message}", e) // 添加日志记录
                 }
                 if (retryCount >= maxRetries) throw e
             }
