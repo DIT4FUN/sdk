@@ -5,14 +5,17 @@
     android:orientation="vertical"
     android:padding="16dp">
 
-    <!-- 修改布局容器为LinearLayout以支持权重 -->
+    <!-- 修改WebView配置以启用JavaScript交互 -->
     <WebView
         android:id="@+id/chatWebView"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:scrollbars="vertical"
-        android:overScrollMode="ifContentScrolls" />
+        android:overScrollMode="ifContentScrolls"
+        android:clickable="true"
+        android:focusable="true"
+        />
 
     <!-- Input layout for sending messages -->
     <LinearLayout

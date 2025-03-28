@@ -4,6 +4,7 @@ apply plugin: 'kotlin-android-extensions'
 
 repositories {
     mavenLocal()
+    mavenCentral() // 添加Maven Central仓库以解析Markwon依赖
     maven {
         url 'https://oss.sonatype.org/content/repositories/snapshots/'
     }
@@ -30,7 +31,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
-
+    packagingOptions {
+        exclude 'META-INF/LICENSE-LGPL-2.1.txt'
+        exclude 'META-INF/LICENSE-LGPL-3.txt'
+        exclude 'META-INF/LICENSE-W3C-TEST'
+        exclude 'META-INF/DEPENDENCIES'
+    }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -96,20 +102,9 @@ dependencies {
     implementation project(':sdk')
 //    implementation 'com.robotemi:sdk:1.134.1'
     implementation 'com.google.code.gson:gson:2.9.0'
-    // CommonMark 解析库
-    implementation 'org.commonmark:commonmark:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-gfm-tables:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-autolink:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-task-list-items:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-heading-anchor:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-yaml-front-matter:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-ins:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-footnotes:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-gfm-strikethrough:0.24.0'
-    implementation 'org.commonmark:commonmark-ext-image-attributes:0.24.0'
-    implementation 'com.jakewharton.markwon:markwon-core:4.6.2'
-    implementation 'com.jakewharton.markwon:markwon-android:4.6.2'
 
+
+    implementation 'com.vladsch.flexmark:flexmark-all:0.64.8'
 
 
     // HTML 渲染库

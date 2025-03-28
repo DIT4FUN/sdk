@@ -37,9 +37,10 @@ import java.io.InputStreamReader
 import java.util.concurrent.TimeUnit
 import java.util.regex.Pattern
 import java.io.InputStream
+import com.vladsch.flexmark.html.HtmlRenderer
+import com.vladsch.flexmark.parser.Parser
+import com.vladsch.flexmark.util.data.MutableDataSet
 
-// 需要导入Markdown解析器
-import com.robotemi.sdk.sample.MarkdownUtils.parseMarkdown
 
 class OllamaActivity : AppCompatActivity() {
     private lateinit var binding: ActivityOllamaBinding
@@ -66,13 +67,14 @@ class OllamaActivity : AppCompatActivity() {
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
-            // 禁用不必要的功能以优化渲染性能
             mediaPlaybackRequiresUserGesture = false
             cacheMode = android.webkit.WebSettings.LOAD_NO_CACHE
-            // 优化渲染模式
             domStorageEnabled = true
             databaseEnabled = true
             allowFileAccess = true
+            // 新增：启用文本选择功能
+            setDefaultTextEncodingName("utf-8")
+            setSupportMultipleWindows(true)
         }
 
         // Ensure WebView is ready to execute JavaScript
@@ -106,7 +108,22 @@ class OllamaActivity : AppCompatActivity() {
             .build()
         ollamaApi = retrofit.create(OllamaApi::class.java)
 
-        binding.chatWebView.loadDataWithBaseURL(null, "<div id='chatContainer'></div>", "text/html", "UTF-8", null)  // 初始化基础HTML结构
+        // 修改初始HTML结构添加文本选择样式
+        binding.chatWebView.loadDataWithBaseURL(
+            null,
+            """
+                <style>
+                    body, div {
+                        -webkit-user-select: text !important;
+                        user-select: text !important;
+                    }
+                </style>
+                <div id='chatContainer'></div>
+            """.trimIndent(),
+            "text/html",
+            "UTF-8",
+            null
+        )  // 初始化基础HTML结构
 
         binding.ollamaSendButton.setOnClickListener {
             val message = binding.ollamaInput.text.toString()
@@ -123,32 +140,31 @@ class OllamaActivity : AppCompatActivity() {
     private fun updateChatWebView(messages: List<Message> = messageList) {
         val htmlContent = messages.joinToString("") { message ->
             val processedContent = when (message.role) {
-                "user" -> "<b>user:</b> ${convertMarkdownToHtml(message.content)}"
-                "assistant" -> "<b>Assistant:</b> ${convertMarkdownToHtml(message.content)}"
-                else -> convertMarkdownToHtml(message.content)
+                "user" -> "<b>user:</b> ${convertMarkdownToHtml(message.content).trim()}"
+                "assistant" -> "<b>Assistant:</b> ${convertMarkdownToHtml(message.content).trim()}"
+                else -> convertMarkdownToHtml(message.content).trim()
             }
             """
                 <div style='margin: 4px 0; padding: 4px; border-radius: 8px;'>$processedContent</div>
             """.trimIndent()
-        }
-        Log.d("OllamaActivity", "updateChatWebView called with htmlContent: $htmlContent")
-        binding.chatWebView.evaluateJavascript("javascript:document.getElementById('chatContainer').innerHTML = '${htmlContent.replace("'","\\'")}';", null)
+        }.trim() // 新增整体trim去除多余换行
 
+        Log.d("OllamaActivity", "updateChatWebView called with htmlContent: $htmlContent")
+        // 使用双引号包裹并转义双引号，修复单引号转义问题
+        binding.chatWebView.evaluateJavascript(
+            "javascript:document.getElementById('chatContainer').innerHTML = \"${htmlContent.replace("\"", "&quot;").replace("\n", " ")}\";",
+            null
+        )
     }
 
-    // 修改Markdown转换函数实现，增强渲染能力
     private fun convertMarkdownToHtml(content: String): String {
-        // 使用更可靠的Markdown解析方案（此处假设已添加Markwon库）
-        // 1. 替换为Markwon解析（需先添加依赖）
-        // 2. 若无法添加依赖，手动增强基础转换
-        var html = content
-            .replace(Regex("""\*\*(.*?)\*\*"""), "<strong>$1</strong>") // 加粗
-            .replace(Regex("""`(.*?)`"""), "<code>$1</code>") // 代码片段
-            .replace(Regex("""# (.+)"""), "<h1>$1</h1>") // 标题
-            .replace(Regex("""## (.+)"""), "<h2>$1</h2>")
-            .replace(Regex("""\n"""), "<br>") // 换行
-        // 添加基础样式
-        html = "<div style='font-family: Arial; white-space: pre-line;'>$html</div>"
+        var parser = Parser.builder().build()
+        var renderer = HtmlRenderer.builder().build()
+        val html = renderer.render(parser.parse(content)).trim() // 新增trim去除多余空白
+        Log.d("MarkdownDebug", """
+        Original: $content
+        Converted: $html
+    """.trimMargin())
         return html
     }
 
